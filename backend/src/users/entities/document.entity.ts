@@ -7,6 +7,9 @@ export class Document {
   id: string;
 
   @Column({ type: 'text' })
+  document_path: string; // Ruta del archivo
+
+  @Column({ type: 'text', nullable: true })
   document_hash: string; // Hash del documento para integridad (KYC)
 
   @Column({ type: 'varchar', length: 50 })
