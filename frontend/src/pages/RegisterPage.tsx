@@ -10,8 +10,34 @@ const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '' });
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [location, setLocation] = useState<{lat: number | null, lng: number | null}>({lat: null, lng: null});
+  const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleGetLocation = () => {
+    setLocationStatus('loading');
+    if (!navigator.geolocation) {
+      setError('Geolocalización no soportada por este navegador.');
+      setLocationStatus('error');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+        setLocationStatus('success');
+      },
+      (err) => {
+        console.error(err);
+        setError('No se pudo obtener la ubicación. Activa el GPS.');
+        setLocationStatus('error');
+      }
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,15 +45,28 @@ const RegisterPage: React.FC = () => {
     setError('');
 
     try {
-      // Use the new auth/register endpoint that logs in automatically
-      const response = await axios.post('http://localhost:3000/auth/register', formData);
+      const data = new FormData();
+      data.append('name', formData.name);
+      data.append('email', formData.email);
+      data.append('phone', formData.phone);
+      data.append('password', formData.password);
       
-      // Auto-login
+      if (documentFile) {
+        data.append('document', documentFile);
+      }
+      if (location.lat && location.lng) {
+        data.append('latitude', location.lat.toString());
+        data.append('longitude', location.lng.toString());
+      }
+
+      const response = await axios.post('http://localhost:3000/auth/register', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
       if (response.data.access_token) {
           login(response.data.access_token, response.data.user);
-          navigate('/dashboard'); // Go straight to action
+          navigate('/dashboard'); 
       } else {
-          // Fallback if structure is different
           navigate('/login', { state: { message: 'Cuenta creada. Inicia sesión.' } });
       }
 
@@ -89,6 +128,35 @@ const RegisterPage: React.FC = () => {
             required
             minLength={6}
           />
+          
+          <div className="pt-2">
+            <label className="text-sm font-medium text-gray-700 mb-1 block">Documento de Identidad (Opcional)</label>
+            <input 
+              type="file" 
+              accept="image/*,.pdf"
+              onChange={(e) => setDocumentFile(e.target.files ? e.target.files[0] : null)}
+              className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+          </div>
+
+          <div className="pt-2">
+             <label className="text-sm font-medium text-gray-700 mb-1 block">Ubicación (Para empleos cercanos)</label>
+             <button
+                type="button"
+                onClick={handleGetLocation}
+                className={`w-full py-2 px-4 rounded-lg text-sm border flex items-center justify-center gap-2 transition-colors ${
+                    locationStatus === 'success' 
+                    ? 'bg-green-50 border-green-200 text-green-700' 
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+             >
+                {locationStatus === 'loading' && 'Obteniendo ubicación...'}
+                {locationStatus === 'success' && '✓ Ubicación Guardada'}
+                {locationStatus === 'error' && 'Reintentar Ubicación'}
+                {locationStatus === 'idle' && '📍 Usar mi ubicación actual'}
+             </button>
+          </div>
+
           <Button type="submit" className="w-full mt-4" isLoading={isLoading}>
             Registrarse y Entrar
           </Button>
