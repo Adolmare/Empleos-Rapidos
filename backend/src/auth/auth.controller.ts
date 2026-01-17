@@ -19,7 +19,13 @@ export class AuthController {
       },
     }),
   }))
-  async register(@Body() body: any, @UploadedFile() file: Express.Multer.File) {
+  async register(
+    @Body() body: any, 
+    @UploadedFile() file: Express.Multer.File
+  ) {
+    // Validación manual de presencia de archivo si es requerido por reglas de negocio
+    // if (!file) { throw new BadRequestException('El documento de identidad es obligatorio.'); }
+    
     const documentPath = file ? file.path : null;
     return this.authService.register({ ...body, documentPath });
   }
